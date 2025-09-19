@@ -32,7 +32,7 @@ pd.set_option('display.max_columns', None)
 with open(os.path.join(input_path, 'colum-cleaning.json'), 'r', encoding='utf-8') as f:
     cols = json.loads(f.read())
 
-def read_inputs():
+def read_inputs() -> dict:
     df_inputs = {}
     df_inputs['employees_'] = pd.read_csv(os.path.join(input_path, 'Empleados_AR.csv'), encoding='latin-1', sep=';', low_memory=False)
     df_inputs['drops'] = pd.read_csv(os.path.join(input_path, 'Retiros_Causa.csv'), encoding='latin-1', low_memory=False)
@@ -49,7 +49,7 @@ def read_inputs():
     df_inputs['identifiers'] = df_inputs['df'][cols['idents']]
     return df_inputs
 
-def build_raw_data(df_inputs):
+def build_raw_data(df_inputs: dict) -> dict:
     df = df_inputs['df'].drop(cols['drop_cols'], axis=1)
     df = df.drop(cols['useless_cols'], axis=1)
     df = df.drop(cols['duplicated_cols'], axis=1)
@@ -75,7 +75,7 @@ def build_raw_data(df_inputs):
     df_inputs['df'] = df
     return df_inputs
 
-def build_precurated_data(df_inputs):
+def build_precurated_data(df_inputs: dict) -> dict:
     operative_stuff = df_inputs['df'][
         (df_inputs['df'].Planta=='OPERATIVOS')&
         (df_inputs['df'].Proyecto.isin(cols['projects']))
@@ -85,7 +85,7 @@ def build_precurated_data(df_inputs):
     df_inputs['days'] = days[(days>0)&(days<120)]
     return df_inputs
 
-def define_base_line(df_inputs):
+def define_base_line(df_inputs: dict) -> dict:
     desvest = round(float(df_inputs['days'].std()), 2)
     fig, ax = plt.subplots()
     counts, bins, _ = ax.hist(df_inputs['days'], bins=15, edgecolor='black', alpha=0.7)
@@ -108,28 +108,28 @@ def define_base_line(df_inputs):
     ax.set_ylabel('Frecuencia')
     return fig
 
-def save_preprocess(df_inputs, fig):
+def save_preprocess(df_inputs: dict, fig: plt.figure, prefix: str='') -> None:
     fig.savefig(os.path.join(output_path, 'base_line.png'), dpi=150, bbox_inches='tight')
     df_inputs['identifiers'].to_csv(
-            os.path.join(output_path, 'databases', 'identifiers.csv'),
+            os.path.join(output_path, 'databases', f'{prefix}_identifiers.csv'),
             index=0,
             sep=',',
             encoding='utf-8'
         )
     df_inputs['df'].to_csv(
-        os.path.join(output_path, 'databases', 'raw_data.csv'),
+        os.path.join(output_path, 'databases', f'{prefix}_raw_data.csv'),
         index=0,
         sep=',',
         encoding='utf-8'
     )
     df_inputs['operative_stuff'].to_csv(
-        os.path.join(output_path, 'databases', 'precurated.csv'),
+        os.path.join(output_path, 'databases', f'{prefix}_precurated.csv'),
         index=0,
         sep=',',
         encoding='utf-8'
     )
 
-def preprocess_data():
+def preprocess_data(prefix: str=''):
     print('process precurated data...')
     print('     reading data...')
     df_inputs = read_inputs()
@@ -139,7 +139,7 @@ def preprocess_data():
     df_inputs = build_precurated_data(df_inputs)
     print('     defining baseline and saving results...')
     fig = define_base_line(df_inputs)
-    save_preprocess(df_inputs, fig)
+    save_preprocess(df_inputs, fig, prefix)
     return df_inputs, fig
 
 if __name__=='__main__':

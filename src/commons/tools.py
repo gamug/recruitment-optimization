@@ -1,9 +1,13 @@
-import os
+import datetime, json, os
+from typing import Tuple, Any
 from scipy import stats
-import pandas as pd
+import pandas as pd, numpy as np
 
 input_path = os.path.join('..', 'input')
 output_path = os.path.join('..', 'output')
+cat_cols = ['Desc_Cargo', 'Proyecto', 'genero']
+with open(os.path.join(input_path, 'column-curated.json'), 'r', encoding='utf-8') as f:
+    column_drops = json.loads(f.read())
 
 def check_directories():
     paths = [
@@ -24,3 +28,92 @@ def input_numeric_col(df: pd.DataFrame, col: str) -> pd.DataFrame:
     else:
         df[col] = df[col].fillna(df[col].median())
     return df
+
+def input_missing_values(
+    dane_enriched: pd.DataFrame,
+    dane_dict: pd.DataFrame,
+    business_dict: pd.DataFrame
+    ) -> Tuple[Any]:
+    base_curated = dane_enriched.drop(column_drops['irrelevant_cols'], axis=1)
+    base_curated = base_curated.drop(column_drops['geocoded_dane_col_drops'], axis=1)
+    null_counts = pd.DataFrame({col: [round(base_curated[col].isna().sum()*100/len(base_curated), 2)] for col in base_curated.columns}).T
+    dropped_cols = []
+    for col in null_counts.index:
+        if null_counts.loc[col].iloc[0]:
+            if null_counts.loc[col].iloc[0]<=15:
+                if col in dane_dict.VARIABLE.tolist():
+                    discrete = dane_dict[dane_dict.VARIABLE==col].TIPO.iloc[0] in ['Text', 'Long Integer']
+                else:
+                    discrete =  business_dict[business_dict['Variable']==col].iloc[0]=='Discreta'
+                if discrete:
+                    base_curated[col] = base_curated[col].fillna(base_curated[col].mode().iloc[0])
+                else:
+                    input_numeric_col(base_curated, col)
+            else:
+                dropped_cols.append(col)
+                base_curated = base_curated.drop(col, axis=1)
+    return base_curated, dropped_cols
+
+def years_computing(dataset: pd.DataFrame) -> pd.DataFrame:
+    desc_cargo_eq = {
+        "CONDUCTOR VOLQUETA DAF": "CONDUCTOR DE VOLQUETA DAF",
+        "AUXILIAR ADMINISTRATIVA": "AUXILIAR ADMINSTRATIVO",
+        "INSPECTOR SST": "INSPECTOR SST I",
+        "SOLDADOR ": "SOLDADOR I"
+    }
+    dataset['Desc_Cargo'] = dataset['Desc_Cargo'].replace(desc_cargo_eq)
+    dataset_ = dataset.copy()
+    dataset_.insert(10, 'anios', (datetime.datetime.now()-dataset.fecha_nacimiento).dt.days//365.25)
+    dataset_ = dataset_.drop('fecha_nacimiento', axis=1)
+    dataset_ = dataset_[~(dataset_.causa_retiro=='MUERTE DEL TRABAJADOR')]
+    return dataset_
+
+def feature_dane(df: pd.DataFrame):
+    total_counting = {
+        'TP27_PERSO': 'persons', #número total de personas
+        'TVIVIENDA': 'houses', #conteo de viviendas
+        'CTNENCUEST': 'surveys', #cantidad de encuestas
+        'TP16_HOG': 'homes'
+    }
+    feature_bars = {
+        'TP27_PERSO': [
+            'TP51_13_ED', 'TP51SUPERI', 'TP51SECUND', 'TP51PRIMAR', 'TP51_99_ED', 'TP34_6_EDA',
+            'TP34_8_EDA', 'TP34_7_EDA', 'TP34_3_EDA', 'TP34_5_EDA', 'TP34_9_EDA', 'TP34_4_EDA',
+            'TP34_2_EDA', 'TP34_1_EDA', 'TP32_1_SEX', 'TP32_2_SEX', 'TP51POSTGR'
+        ],
+        'TVIVIENDA': [
+            'TP9_1_USO', 'TP19_INTE1', 'TP19_GAS_1', 'TP19_ACU_1', 'TP19_GAS_9',
+            'TP19_EE_E2', 'TP19_EE_E3', 'TP19_EE_E5', 'TP19_EE_E6', 'TP15_1_OCU',
+            'TP14_2_TIP', 'TP9_2_USO', 'TP14_6_TIP', 'TP15_2_OCU', 'TP14_4_TIP',
+        ],
+        'CTNENCUEST': ['TP4_2_NO', 'TP3_2_NO'],
+        'TP16_HOG': ['TP27_PERSO']
+    }
+    featured_dataset, drop_vars = df.copy(), []
+    for key, value in feature_bars.items():
+        for var in value:
+            featured_dataset[f'{total_counting[key]}_{var}'] = featured_dataset[var]/featured_dataset[key]
+        drop_vars.extend(value)
+    featured_dataset = featured_dataset.drop(np.unique(drop_vars), axis=1)
+    return featured_dataset
+
+def outliers_remotion(dataset_: pd.DataFrame) -> pd.DataFrame:
+    dataset_.loc[dataset_.anios<18, 'anios'] = np.nan
+    dataset_.loc[dataset_.anios>60, 'anios'] = np.nan
+    dataset_ = input_numeric_col(dataset_, 'anios')
+    return dataset_
+
+def get_dummies(dataset_: pd.DataFrame, labeling_scope: bool=True) -> pd.DataFrame:
+    cat_dataset = dataset_[cat_cols]
+    numeric_data = dataset_[dataset_.columns[~dataset_.columns.isin(cat_cols)]]
+    objective_var = numeric_data[['causa_retiro']]
+    numeric_data = numeric_data.drop('causa_retiro', axis=1)
+    #setting dtypes
+    numeric_data = numeric_data.astype({'anios': int})
+    dummies = (pd.get_dummies(cat_dataset)*1).drop('genero_F', axis=1)
+    dataset_ = dummies.join(numeric_data).join(objective_var)
+    #encoding scope variable
+    if labeling_scope:
+        dataset_.loc[dataset_.causa_retiro=='TERMINACION DE CONTRATO', 'causa_retiro'] = 1
+        dataset_.loc[dataset_.causa_retiro!=1, 'causa_retiro'] = 0
+    return dataset_

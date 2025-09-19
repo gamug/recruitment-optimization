@@ -7,8 +7,8 @@ from src.commons.tools import check_directories
 check_directories()
 
 if __name__=='__main__':
-    preprocess_data()
-    geocoding(geocode_data=False, merge_dane=False)
-    curate_without_featuring()
-    get_train_deploy_datasets()
-    
+    prefix = 'test'
+    preprocess_data(prefix=prefix)
+    geocoding(geocode_data=False, merge_dane=False, prefix=prefix)
+    curate_without_featuring(prefix=prefix)
+    get_train_deploy_datasets(prefix=prefix)

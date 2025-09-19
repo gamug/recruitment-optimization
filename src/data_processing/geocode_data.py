@@ -31,7 +31,7 @@ def extract_data(result: dict, cities: list, districts: list, latitudes: list, l
         latitudes.append(None)
         longitudes.append(None)
         
-def geocode_precurated(precurated):
+def geocode_precurated(precurated, prefix: str='') -> pd.DataFrame:
     department, city = 'Cundinamarca', 'Bogotá'
     cities, districts, latitudes, longitudes = [], [], [], []
 
@@ -76,7 +76,7 @@ def geocode_precurated(precurated):
                     assign(longitude=longitudes)
     geocoded = geocoded.drop(location_drops, axis=1)
     geocoded.to_csv(
-            os.path.join(output_path, 'databases', 'geocoded.csv'),
+            os.path.join(output_path, 'databases', f'{prefix}_geocoded.csv'),
             index=0,
             sep=','
         )
@@ -110,17 +110,17 @@ def enrich_with_dane():
     geocoded_dane = pd.concat(dfs)
     return geocoded_dane
 
-def save_results(df: pd.DataFrame):
+def save_results(df: pd.DataFrame, prefix: str=''):
     df.to_csv(
-        os.path.join(output_path, 'databases', 'dane_enriched_db.csv'),
+        os.path.join(output_path, 'databases', f'{prefix}_dane_enriched_db.csv'),
         index=0,
         sep=','
     )
 
-def geocoding(geocode_data=False, merge_dane=False):
+def geocoding(geocode_data=False, merge_dane=False, prefix: str='') -> pd.DataFrame:
     data = {}
     print('geocoding data...')
-    precurated = pd.read_csv(os.path.join(output_path, 'databases', 'precurated.csv'))
+    precurated = pd.read_csv(os.path.join(output_path, 'databases', f'{prefix}_precurated.csv'))
     if geocode_data:
         print('     gecoding precurated data...')
         data['geocoded'] = geocode_precurated(precurated)
@@ -128,8 +128,8 @@ def geocoding(geocode_data=False, merge_dane=False):
         print('     merging precurated geocoded data with DANE...')
         df = enrich_with_dane()
         print('     saving data...')
-        save_results(df)
-    data['geocoded_dane'] = pd.read_csv(os.path.join(output_path, 'databases', 'dane_enriched_db.csv'))
+        save_results(df, prefix)
+    data['geocoded_dane'] = pd.read_csv(os.path.join(output_path, 'databases', f'{prefix}_dane_enriched_db.csv'))
     return data
 
 if __name__=='__main__':
