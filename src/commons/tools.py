@@ -2,10 +2,15 @@ import datetime, json, os
 from typing import Tuple, Any
 from scipy import stats
 import pandas as pd, numpy as np
+from sklearn.impute import KNNImputer
 
 input_path = os.path.join('..', 'input')
 output_path = os.path.join('..', 'output')
-cat_cols = ['Desc_Cargo', 'Proyecto', 'genero']
+cols_high_correlated = [
+    'Desc_Cargo_AYUDANTE DE OBRA tasa 6.96', 'CTNENCUEST', 'TP16_HOG',
+    'TVIVIENDA', 'TP9_2_2_MI', 'TP19_RECB1', 'TP19_INTE2', 'TP19_EE_1',
+    'TP19_ALC_1', 'TP19_INTE9', 'TP15_4_OCU', 'TP19_RECB2'
+]
 with open(os.path.join(input_path, 'column-curated.json'), 'r', encoding='utf-8') as f:
     column_drops = json.loads(f.read())
 
@@ -22,11 +27,16 @@ def check_directories():
         if not os.path.exists(path):
             os.mkdir(path)
 
-def input_numeric_col(df: pd.DataFrame, col: str) -> pd.DataFrame:
-    if -0.5<stats.skew(df[col].dropna())<0.5:
-        df[col] = df[col].fillna(df[col].mean())
+def input_numeric_col(df: pd.DataFrame, col: str='knn') -> pd.DataFrame:
+    if col!='knn':
+        if -0.5<stats.skew(df[col].dropna())<0.5:
+            df[col] = df[col].fillna(df[col].mean())
+        else:
+            df[col] = df[col].fillna(df[col].median())
     else:
-        df[col] = df[col].fillna(df[col].median())
+        imputer = KNNImputer(n_neighbors=3)
+        df_imputed = imputer.fit_transform(df)
+        df = pd.DataFrame(df_imputed, columns=df.columns)
     return df
 
 def input_missing_values(
@@ -48,7 +58,7 @@ def input_missing_values(
                 if discrete:
                     base_curated[col] = base_curated[col].fillna(base_curated[col].mode().iloc[0])
                 else:
-                    input_numeric_col(base_curated, col)
+                    base_curated = input_numeric_col(base_curated, col)
             else:
                 dropped_cols.append(col)
                 base_curated = base_curated.drop(col, axis=1)
@@ -94,6 +104,7 @@ def feature_dane(df: pd.DataFrame):
         for var in value:
             featured_dataset[f'{total_counting[key]}_{var}'] = featured_dataset[var]/featured_dataset[key]
         drop_vars.extend(value)
+    featured_dataset = input_numeric_col(featured_dataset)
     featured_dataset = featured_dataset.drop(np.unique(drop_vars), axis=1)
     return featured_dataset
 
@@ -103,8 +114,9 @@ def outliers_remotion(dataset_: pd.DataFrame) -> pd.DataFrame:
     dataset_ = input_numeric_col(dataset_, 'anios')
     return dataset_
 
-def get_dummies(dataset_: pd.DataFrame, labeling_scope: bool=True) -> pd.DataFrame:
+def get_dummies(dataset_: pd.DataFrame, cat_cols: list, labeling_scope: bool=True) -> pd.DataFrame:
     cat_dataset = dataset_[cat_cols]
+    cat_dataset = cat_dataset.astype({var: str for var in cat_cols})
     numeric_data = dataset_[dataset_.columns[~dataset_.columns.isin(cat_cols)]]
     objective_var = numeric_data[['causa_retiro']]
     numeric_data = numeric_data.drop('causa_retiro', axis=1)

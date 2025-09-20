@@ -31,7 +31,10 @@ def build_sets(base_curated: pd.DataFrame, prefix: str) -> None:
         ['fecha_retiro', 'fecha_final', 'fecha_ingreso'],
         axis=1
     )
-    descriptive = base_curated[base_curated.causa_retiro!='Activo']
+    descriptive = base_curated[base_curated.causa_retiro!='Activo'].drop(
+        ['fecha_final', 'id_destino', 'id_nivel_academico', 'subsidio_tte'],
+        axis=1
+    )
     train_set.to_csv(os.path.join(data_tools.output_path, 'predictive_mining', 'train_set', f'{prefix}_train_without_featuring.csv'), sep=',', index=0)
     test_set.to_csv(os.path.join(data_tools.output_path, 'predictive_mining', 'deploy_set', f'{prefix}_deploy_without_featuring.csv'), sep=',', index=0)
     descriptive.to_csv(os.path.join(data_tools.output_path, 'descriptive_mining', f'{prefix}_descriptive_without_featuring.csv'), sep=',', index=0)

@@ -5,6 +5,8 @@ import src.commons.tools as data_tools
 
 pd.set_option("display.max_columns", None)
 
+cat_cols = ['Desc_Cargo', 'Proyecto', 'genero']
+
 def read_data(file_path: str) -> pd.DataFrame:
     dataset = pd.read_csv(
         file_path,
@@ -50,12 +52,7 @@ def droping_redundant_variables(dataset_: pd.DataFrame) -> pd.DataFrame:
     print('         computing dane features...')
     featured_dataset = data_tools.feature_dane(dataset_)
     correlated_features = get_high_correlated_features(featured_dataset) #use this to get highly correlated variables
-    cols_high_correlated = [
-        'Desc_Cargo_AYUDANTE DE OBRA tasa 6.96', 'CTNENCUEST', 'TP16_HOG',
-        'TVIVIENDA', 'TP9_2_2_MI', 'TP19_RECB1', 'TP19_INTE2', 'TP19_EE_1',
-        'TP19_ALC_1', 'TP19_INTE9', 'TP15_4_OCU', 'TP19_RECB2'
-    ]
-    featured_dataset = featured_dataset.drop(cols_high_correlated, axis=1)
+    featured_dataset = featured_dataset.drop(data_tools.cols_high_correlated, axis=1)
     scope = featured_dataset.causa_retiro
     featured_dataset = featured_dataset.drop('causa_retiro', axis=1)
     featured_dataset['retiro'] = scope
@@ -76,7 +73,7 @@ def process_deploy_set(dataset_: pd.DataFrame) -> pd.DataFrame:
     return featured_dataset
 
 def process_prediction_dataset(file_path: str, prefix: str='') -> pd.DataFrame:
-    set_ = os.path.basename(file_path).split('_')[0]
+    set_ = os.path.basename(file_path).split('_')[1]
     print(f'getting {set_} dataset...')
     dataset = read_data(file_path)
     print('     computing features...')
@@ -84,7 +81,7 @@ def process_prediction_dataset(file_path: str, prefix: str='') -> pd.DataFrame:
     print('     removing outliers...')
     dataset_ = data_tools.outliers_remotion(dataset_)
     print('     getting dummies...')
-    dataset_ = data_tools.get_dummies(dataset_)
+    dataset_ = data_tools.get_dummies(dataset_, cat_cols)
     if set_=='train':
         print('     dropping unvariant cols...')
         dataset_ = drop_non_variant_cols(dataset_)
@@ -101,7 +98,7 @@ def process_prediction_dataset(file_path: str, prefix: str='') -> pd.DataFrame:
 
 def get_train_deploy_datasets(prefix: str=''):
     file_path = os.path.join(data_tools.output_path, 'predictive_mining', 'train_set', f'{prefix}_train_without_featuring.csv')
-    process_prediction_dataset(file_path)
+    process_prediction_dataset(file_path, prefix)
     file_path = os.path.join(data_tools.output_path, 'predictive_mining', 'deploy_set', f'{prefix}_deploy_without_featuring.csv')
     process_prediction_dataset(file_path, prefix)
     
