@@ -93,7 +93,7 @@ def process_prediction_dataset(file_path: str, prefix: str='') -> pd.DataFrame:
         print('     processing deploy dataset...')
         featured_dataset = process_deploy_set(dataset_)
     print(f'    saving {set_} dataset')
-    featured_dataset.to_csv(os.path.join(os.path.dirname(file_path), f'{prefix}_non_correlated_dataset.csv'), index=0)
+    featured_dataset.to_csv(os.path.join(os.path.dirname(file_path), f'{prefix}_non_correlated_dataset_{set_}.csv'), index=0)
     return featured_dataset
 
 def get_train_deploy_datasets(prefix: str=''):

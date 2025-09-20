@@ -86,7 +86,6 @@ def save_data(dataset_cluster: pd.DataFrame, categorical_db: pd.DataFrame, file_
     )
 
 def process_predictive_sets(prefix: str='') -> None:
-    prefix = 'test'
     print('processing descriptive sets...')
     file_path = os.path.join(data_tools.output_path, 'descriptive_mining', f'{prefix}_descriptive_without_featuring.csv')
     dataset = predictive_base_processing(file_path)
@@ -97,7 +96,7 @@ def process_predictive_sets(prefix: str='') -> None:
     categorical_db = numeric_binner(dataset)
     categorical_db = categorical_db.drop(data_tools.cols_high_correlated[1:], axis=1)
     print('     saving datasets...')
-    save_data(dataset_cluster, categorical_db, file_path)
+    save_data(dataset_cluster, categorical_db, file_path, prefix=prefix)
 
 if __name__=='__main__':
     process_predictive_sets()

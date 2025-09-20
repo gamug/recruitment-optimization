@@ -13,4 +13,4 @@ if __name__=='__main__':
     geocoding(geocode_data=False, merge_dane=False, prefix=prefix)
     curate_without_featuring(prefix=prefix)
     get_train_deploy_datasets(prefix=prefix)
-    process_predictive_sets(prefix='test')
+    process_predictive_sets(prefix=prefix)
