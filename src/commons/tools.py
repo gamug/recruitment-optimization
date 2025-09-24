@@ -16,6 +16,7 @@ def check_directories() -> None:
     paths = [
         input_path, output_path,
         os.path.join(output_path, 'databases'),
+        os.path.join(output_path, 'models'),
         os.path.join(output_path, 'descriptive_mining'),
         os.path.join(output_path, 'predictive_mining'),
         os.path.join(output_path, 'predictive_mining', 'train_set'),
