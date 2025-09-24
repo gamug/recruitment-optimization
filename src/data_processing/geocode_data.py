@@ -1,10 +1,9 @@
-import json, os, requests, time, tqdm
+import os, requests, time, tqdm
 from dotenv import load_dotenv
 import pandas as pd, geopandas as gpd, numpy as np
 
 from src.commons.tools import input_path, output_path
 
-pd.set_option("display.max_columns", None)
 load_dotenv()
 
 location_drops = [
@@ -14,6 +13,24 @@ location_drops = [
 here_api_key = os.environ.get('HERE_API_KEY')
 
 def extract_data(result: dict, cities: list, districts: list, latitudes: list, longitudes: list) -> None:
+    ''' Extract relevant data from geocoding result. This receives the Here API response
+        as a dictionary and appends the relevant data to the lists provided as arguments.
+    Parameters
+    ----------
+    result : dict
+        The response from the Here API geocoding request.
+    cities : list
+        List to append the extracted city names.
+    districts : list
+        List to append the extracted district names.
+    latitudes : list
+        List to append the extracted latitude values.
+    longitudes : list
+        List to append the extracted longitude values.
+    Returns
+    -------
+    None
+        The function modifies the input lists in place and does not return any value.'''
     if not 'error' in result and len(result['items']):
         if 'city' in result['items'][0]['address']:
             cities.append(result['items'][0]['address']['city'])
@@ -32,6 +49,17 @@ def extract_data(result: dict, cities: list, districts: list, latitudes: list, l
         longitudes.append(None)
         
 def geocode_precurated(precurated, prefix: str='') -> pd.DataFrame:
+    ''' Geocode the addresses in the precurated dataframe using the Here API.
+    Parameters
+    ----------
+    precurated : pd.DataFrame
+        DataFrame containing the precurated data with address information.
+    prefix : str, optional
+        Prefix to identify the files input-output. Like an unique identifier to make a trace between tests, by default ''
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with geocoded information including city, district, latitude, and longitude.'''
     department, city = 'Cundinamarca', 'Bogotá'
     cities, districts, latitudes, longitudes = [], [], [], []
 
@@ -83,6 +111,11 @@ def geocode_precurated(precurated, prefix: str='') -> pd.DataFrame:
     return geocoded
 
 def enrich_with_dane():
+    ''' Enrich the geocoded data with DANE microdata by performing a spatial join.
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame enriched with DANE microdata.'''
     geocoded = pd.read_csv(os.path.join(output_path, 'databases', 'geocoded.csv'))
     geocoded = geocoded[~geocoded.latitude.isnull()]
     # Convert geocode into GeoDataFrame with geometry from lat/lon
@@ -111,6 +144,17 @@ def enrich_with_dane():
     return geocoded_dane
 
 def save_results(df: pd.DataFrame, prefix: str=''):
+    ''' Save the enriched DataFrame to a CSV file.
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to be saved.
+    prefix : str, optional
+        Prefix to identify the files input-output. Like an unique identifier to make a trace between tests, by default ''
+    Returns
+    -------
+    None
+        The function saves the DataFrame to a CSV file and does not return any value.'''
     df.to_csv(
         os.path.join(output_path, 'databases', f'{prefix}_dane_enriched_db.csv'),
         index=0,
@@ -118,6 +162,19 @@ def save_results(df: pd.DataFrame, prefix: str=''):
     )
 
 def geocoding(geocode_data=False, merge_dane=False, prefix: str='') -> pd.DataFrame:
+    ''' Geocode and optionally enrich the precurated data with DANE microdata.
+    Parameters
+    ----------
+    geocode_data : bool, optional
+        Whether to perform geocoding of the precurated data, by default False
+    merge_dane : bool, optional
+        Whether to merge the geocoded data with DANE microdata, by default False
+    prefix : str, optional
+        Prefix to identify the files input-output. Like an unique identifier to make a trace between tests, by default ''
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing the geocoded and optionally DANE-enriched data.'''
     data = {}
     print('geocoding data...')
     precurated = pd.read_csv(os.path.join(output_path, 'databases', f'{prefix}_precurated.csv'))

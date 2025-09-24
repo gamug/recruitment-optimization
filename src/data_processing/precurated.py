@@ -33,6 +33,17 @@ with open(os.path.join(input_path, 'colum-cleaning.json'), 'r', encoding='utf-8'
     cols = json.loads(f.read())
 
 def read_inputs() -> dict:
+    ''' Read input data files and return them in a dictionary.
+    Returns
+    -------
+    dict
+        A dictionary containing the input dataframes.
+        employees_: DataFrame containing employee data from 'Empleados_AR.csv'.'
+        drops: DataFrame containing drop data from 'Retiros_Causa.csv'.'
+        employees: Merged DataFrame of employees_ and drops on 'id_contrato'.'
+        df_: DataFrame containing raw employee data from 'Empleados_Activos_Retirados_V1.csv'.'
+        df: Merged DataFrame of df_ and employees on 'id.1'.'
+        identifiers: DataFrame containing identifier columns from df.'''
     df_inputs = {}
     df_inputs['employees_'] = pd.read_csv(os.path.join(input_path, 'Empleados_AR.csv'), encoding='latin-1', sep=';', low_memory=False)
     df_inputs['drops'] = pd.read_csv(os.path.join(input_path, 'Retiros_Causa.csv'), encoding='latin-1', low_memory=False)
@@ -50,6 +61,16 @@ def read_inputs() -> dict:
     return df_inputs
 
 def build_raw_data(df_inputs: dict) -> dict:
+    ''' Build raw data by cleaning and merging input dataframes.
+    Parameters
+    ----------
+    df_inputs : dict
+        A dictionary containing the input dataframes.
+    Returns
+    -------
+    dict
+        A dictionary containing the cleaned and merged raw dataframes.
+        df: Cleaned and merged DataFrame.'''
     df = df_inputs['df'].drop(cols['drop_cols'], axis=1)
     df = df.drop(cols['useless_cols'], axis=1)
     df = df.drop(cols['duplicated_cols'], axis=1)
@@ -76,6 +97,17 @@ def build_raw_data(df_inputs: dict) -> dict:
     return df_inputs
 
 def build_precurated_data(df_inputs: dict) -> dict:
+    ''' Build precurated data by filtering and cleaning the raw data.
+    Parameters
+    ----------
+    df_inputs : dict
+        A dictionary containing the raw dataframes.
+    Returns
+    -------
+    dict
+        A dictionary containing the precurated dataframes.
+        operative_stuff: Filtered and cleaned DataFrame for operative employees.
+        days: Series containing the number of days each operative employee stayed in the company.'''
     operative_stuff = df_inputs['df'][
         (df_inputs['df'].Planta=='OPERATIVOS')&
         (df_inputs['df'].Proyecto.isin(cols['projects']))
@@ -86,6 +118,16 @@ def build_precurated_data(df_inputs: dict) -> dict:
     return df_inputs
 
 def define_base_line(df_inputs: dict) -> dict:
+    ''' Define the baseline by creating a histogram of the days employees stayed in the
+    company and calculating the standard deviation.
+    Parameters
+    ----------
+    df_inputs : dict
+        A dictionary containing the precurated dataframes.
+    Returns
+    -------
+    plt.figure
+        A matplotlib figure containing the histogram of days employees stayed in the company.'''
     desvest = round(float(df_inputs['days'].std()), 2)
     fig, ax = plt.subplots()
     counts, bins, _ = ax.hist(df_inputs['days'], bins=15, edgecolor='black', alpha=0.7)
@@ -109,6 +151,15 @@ def define_base_line(df_inputs: dict) -> dict:
     return fig
 
 def save_preprocess(df_inputs: dict, fig: plt.figure, prefix: str='') -> None:
+    ''' Save the preprocessed data and the baseline figure.
+    Parameters
+    ----------
+    df_inputs : dict
+        A dictionary containing the precurated dataframes.
+    fig : plt.figure
+        A matplotlib figure containing the histogram of days employees stayed in the company.
+    prefix : str, optional
+        Prefix to identify the files input-output. Like an unique identifier to make a trace between tests, by default '''''
     fig.savefig(os.path.join(output_path, 'base_line.png'), dpi=150, bbox_inches='tight')
     df_inputs['identifiers'].to_csv(
             os.path.join(output_path, 'databases', f'{prefix}_identifiers.csv'),
@@ -130,6 +181,16 @@ def save_preprocess(df_inputs: dict, fig: plt.figure, prefix: str='') -> None:
     )
 
 def preprocess_data(prefix: str=''):
+    ''' Preprocess the data by reading input files, building raw and precurated data,
+    defining the baseline, and saving the results.
+    Parameters
+    ----------
+    prefix : str, optional
+        Prefix to identify the files input-output. Like an unique identifier to make a trace between tests, by default ''
+    Returns
+    -------
+    tuple
+        A tuple containing the precurated DataFrame and the baseline figure.'''
     print('process precurated data...')
     print('     reading data...')
     df_inputs = read_inputs()

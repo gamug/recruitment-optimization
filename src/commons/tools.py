@@ -1,5 +1,4 @@
-import datetime, json, os
-from typing import Tuple, Any
+import datetime, os
 from scipy import stats
 import pandas as pd, numpy as np
 from sklearn.impute import KNNImputer
@@ -11,10 +10,9 @@ cols_high_correlated = [
     'TVIVIENDA', 'TP9_2_2_MI', 'TP19_RECB1', 'TP19_INTE2', 'TP19_EE_1',
     'TP19_ALC_1', 'TP19_INTE9', 'TP15_4_OCU', 'TP19_RECB2'
 ]
-with open(os.path.join(input_path, 'column-curated.json'), 'r', encoding='utf-8') as f:
-    column_drops = json.loads(f.read())
 
-def check_directories():
+def check_directories() -> None:
+    '''Check if the required directories exist, if not create them'''
     paths = [
         input_path, output_path,
         os.path.join(output_path, 'databases'),
@@ -28,6 +26,18 @@ def check_directories():
             os.mkdir(path)
 
 def input_numeric_col(df: pd.DataFrame, col: str='knn') -> pd.DataFrame:
+    '''Input missing values in numeric columns
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with numeric columns
+    col : str, optional
+        Column to input missing values. If 'knn' input all columns using KNNImputer, by default 'knn'
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with inputed missing values'''
+    assert col in df.columns.tolist() or col=='knn', 'Column not in DataFrame'
     if col!='knn':
         if -0.5<stats.skew(df[col].dropna())<0.5:
             df[col] = df[col].fillna(df[col].mean())
@@ -39,32 +49,16 @@ def input_numeric_col(df: pd.DataFrame, col: str='knn') -> pd.DataFrame:
         df = pd.DataFrame(df_imputed, columns=df.columns)
     return df
 
-def input_missing_values(
-    dane_enriched: pd.DataFrame,
-    dane_dict: pd.DataFrame,
-    business_dict: pd.DataFrame
-    ) -> Tuple[Any]:
-    base_curated = dane_enriched.drop(column_drops['irrelevant_cols'], axis=1)
-    base_curated = base_curated.drop(column_drops['geocoded_dane_col_drops'], axis=1)
-    null_counts = pd.DataFrame({col: [round(base_curated[col].isna().sum()*100/len(base_curated), 2)] for col in base_curated.columns}).T
-    dropped_cols = []
-    for col in null_counts.index:
-        if null_counts.loc[col].iloc[0]:
-            if null_counts.loc[col].iloc[0]<=15:
-                if col in dane_dict.VARIABLE.tolist():
-                    discrete = dane_dict[dane_dict.VARIABLE==col].TIPO.iloc[0] in ['Text', 'Long Integer']
-                else:
-                    discrete =  business_dict[business_dict['Variable']==col].iloc[0]=='Discreta'
-                if discrete:
-                    base_curated[col] = base_curated[col].fillna(base_curated[col].mode().iloc[0])
-                else:
-                    base_curated = input_numeric_col(base_curated, col)
-            else:
-                dropped_cols.append(col)
-                base_curated = base_curated.drop(col, axis=1)
-    return base_curated, dropped_cols
-
 def years_computing(dataset: pd.DataFrame) -> pd.DataFrame:
+    '''Compute years from date of birth and clean some values
+    Parameters
+    ----------
+    dataset : pd.DataFrame
+        DataFrame with date of birth column
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with years column and cleaned values'''
     desc_cargo_eq = {
         "CONDUCTOR VOLQUETA DAF": "CONDUCTOR DE VOLQUETA DAF",
         "AUXILIAR ADMINISTRATIVA": "AUXILIAR ADMINSTRATIVO",
@@ -78,7 +72,18 @@ def years_computing(dataset: pd.DataFrame) -> pd.DataFrame:
     dataset_ = dataset_[~(dataset_.causa_retiro=='MUERTE DEL TRABAJADOR')]
     return dataset_
 
-def feature_dane(df: pd.DataFrame):
+def feature_dane(df: pd.DataFrame) -> pd.DataFrame:
+    '''Feature engineering for DANE columns. It divides for total feature count in the fields of
+    Persons, Houses, Surveys and Homes. This is done to avoid high correlation between these 
+    variables and the rest of the features.
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with DANE columns. 
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with featured DANE columns'''
     total_counting = {
         'TP27_PERSO': 'persons', #número total de personas
         'TVIVIENDA': 'houses', #conteo de viviendas
@@ -109,12 +114,34 @@ def feature_dane(df: pd.DataFrame):
     return featured_dataset
 
 def outliers_remotion(dataset_: pd.DataFrame) -> pd.DataFrame:
+    '''Remove outliers in the years column
+    Parameters
+    ----------
+    dataset_ : pd.DataFrame
+        DataFrame with years column
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame without outliers in years column'''
     dataset_.loc[dataset_.anios<18, 'anios'] = np.nan
     dataset_.loc[dataset_.anios>60, 'anios'] = np.nan
     dataset_ = input_numeric_col(dataset_, 'anios')
     return dataset_
 
 def get_dummies(dataset_: pd.DataFrame, cat_cols: list, labeling_scope: bool=True) -> pd.DataFrame:
+    '''Get dummies for categorical columns and encode objective variable
+    Parameters
+    ----------
+    dataset_ : pd.DataFrame
+        DataFrame with categorical columns
+    cat_cols : list
+        List with categorical columns
+    labeling_scope : bool, optional
+        If True, encode objective variable for scope analysis, by default True
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with dummies and encoded objective variable'''
     cat_dataset = dataset_[cat_cols]
     cat_dataset = cat_dataset.astype({var: str for var in cat_cols})
     numeric_data = dataset_[dataset_.columns[~dataset_.columns.isin(cat_cols)]]

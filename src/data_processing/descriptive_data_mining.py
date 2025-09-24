@@ -3,11 +3,18 @@ from typing import Tuple
 import pandas as pd, numpy as np
 import src.commons.tools as data_tools
 
-pd.set_option("display.max_columns", None)
-
-cat_cols = ['Desc_Cargo', 'Proyecto', 'genero', 'id_tipo_contrato', 'id_estado_civil', 'id_turno']
+cat_cols = ['Desc_Cargo', 'Proyecto', 'genero', 'id_tipo_contrato', 'id_estado_civil', 'id_turno', 'NMB_LC_CM']
 
 def read_data(prefix: str='') -> Tuple[pd.DataFrame]:
+    '''reads the enriched dane database and the dictionaries of variables
+    Parameters
+    ----------
+    prefix : str, optional
+        Prefix to identify the files input-output. Like an unique identifier to make a trace between tests, by default ''
+    Returns
+    -------
+    Tuple[pd.DataFrame]
+        Tuple with the DataFrames: dane_enriched, dane_dict, business_dict'''
     training_set = os.path.join(data_tools.output_path, 'databases', f'{prefix}_dane_enriched_db.csv')
     dane_enriched = pd.read_csv(
         training_set,
@@ -33,6 +40,15 @@ def read_data(file_path: str) -> pd.DataFrame:
     return dataset
 
 def drop_unvariant_cols(dataset: pd.DataFrame) -> pd.DataFrame:
+    '''Drop unvariant columns in the DataFrame
+    Parameters
+    ----------
+    dataset : pd.DataFrame
+        DataFrame to process
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame without unvariant columns'''
     cat_vars = cat_cols.copy()
     cat_vars.append('causa_retiro')
     dataset_cats = dataset[cat_vars]
@@ -43,7 +59,16 @@ def drop_unvariant_cols(dataset: pd.DataFrame) -> pd.DataFrame:
     dataset_ = dataset_cats.join(dataset_num)
     return dataset_
 
-def predictive_base_processing(prefix: str=''):
+def descriptive_base_processing(prefix: str=''):
+    '''Process the descriptive base data.
+    Parameters
+    ----------
+    prefix : str, optional
+        Prefix to identify the files input-output. Like an unique identifier to make a trace between tests, by default ''
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame processed and ready to use in descriptive modeling'''
     dataset = read_data(prefix)
     dataset_ = data_tools.years_computing(dataset)
     #computing permanence contract time
@@ -63,15 +88,21 @@ def predictive_base_processing(prefix: str=''):
     return dataset_
 
 def numeric_binner(dataset: pd.DataFrame) -> pd.DataFrame:
+    '''Generate a categorical DataFrame by binning numeric variables into quartiles.
+    Parameters
+    ----------
+    dataset : pd.DataFrame
+        DataFrame to process
+    Returns
+    -------
+    pd.DataFrame
+        Categorical DataFrame with binned numeric variables'''
     cat_vars = cat_cols.copy()
     cat_vars.append('causa_retiro')
     dataset_cats = dataset[cat_vars]
     dataset_num = dataset.drop(cat_vars, axis=1)
     quartils = [0, .25, .5, .75, 1.]
-    labels = ['Q1', 'Q2', 'Q3', 'Q4']
-    for col in dataset_num.columns:
-        aux = pd.qcut(x=dataset_num[col].to_numpy(), q=quartils, labels=False, duplicates="drop")
-        dataset_num[col] = pd.qcut(dataset_num[col], q=4, labels=labels[:len(np.unique(aux))], duplicates="drop")
+    dataset_num = dataset_num.apply(lambda col: pd.qcut(col, q=quartils, duplicates="drop"))
     dataset_ = dataset_num.join(dataset_cats)
     return dataset_
 
@@ -85,10 +116,19 @@ def save_data(dataset_cluster: pd.DataFrame, categorical_db: pd.DataFrame, file_
         index=0
     )
 
-def process_predictive_sets(prefix: str='') -> None:
+def process_descriptive_sets(prefix: str='') -> None:
+    '''Process and save the descriptive datasets.
+    Parameters
+    ----------
+    prefix : str, optional
+        Prefix to identify the files input-output. Like an unique identifier to make a trace between tests, by default ''
+    returns
+    -------
+    None
+        Saves the processed datasets to CSV files'''
     print('processing descriptive sets...')
     file_path = os.path.join(data_tools.output_path, 'descriptive_mining', f'{prefix}_descriptive_without_featuring.csv')
-    dataset = predictive_base_processing(file_path)
+    dataset = descriptive_base_processing(file_path)
     print('     getting dummies...')
     dataset_cluster = data_tools.get_dummies(dataset, cat_cols)
     dataset_cluster = dataset_cluster.drop(data_tools.cols_high_correlated, axis=1)
@@ -99,4 +139,4 @@ def process_predictive_sets(prefix: str='') -> None:
     save_data(dataset_cluster, categorical_db, file_path, prefix=prefix)
 
 if __name__=='__main__':
-    process_predictive_sets()
+    process_descriptive_sets()
