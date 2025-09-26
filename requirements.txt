@@ -93,7 +93,6 @@ prometheus_client
 prompt_toolkit
 psutil
 pure_eval
-pyarrow<16.1
 pycparser
 Pygments
 pyogrio
