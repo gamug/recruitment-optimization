@@ -16,7 +16,4 @@ How to setup environment using conda:
     pip install -r requirements_data_processing.txt
     ```
 
-We use Streamlit to create a web application for our project. To access the web application, please visit the following link:
-```
-https://recruitment-optimization-8dtekd553jbdjxn3q5fgns.streamlit.app/
-```
+We use Streamlit to create a web application for our project. To access the web application, please visit the link https://recruitment-optimization-8dtekd553jbdjxn3q5fgns.streamlit.app/
